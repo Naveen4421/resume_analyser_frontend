@@ -1,12 +1,8 @@
 streamlit==1.25.0
-requests>=2.31.0
-pandas>=2.2.0
-matplotlib>=3.8.0
-fastapi>=0.111.1
-uvicorn>=0.24.0
-python-multipart>=0.0.6
-PyMuPDF>=1.22.5
-docx2txt>=0.8
-pydantic>=2.6.2
-python-jose>=3.3.0
+requests==2.31.0
+pandas==2.2.0
+matplotlib==3.10.0
+pillow>=10.0.0
+PyMuPDF==1.22.5
+docx2txt==0.8
 
