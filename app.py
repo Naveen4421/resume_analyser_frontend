@@ -8,7 +8,7 @@ BASE_URL = "http://127.0.0.1:8000"
 # -------------------------
 # Session State Defaults
 # -------------------------
-for key, val in {"page":1, "logged_in":False, "token":None, "role":None, "username":None}.items():
+for key, val in {"page": 1, "logged_in": False, "token": None, "role": None, "username": None}.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
@@ -44,7 +44,7 @@ def match_resumes(job_id):
 # Navigation Helpers
 # -------------------------
 def logout():
-    for key in ["page","logged_in","token","role","username"]:
+    for key in ["page", "logged_in", "token", "role", "username"]:
         st.session_state[key] = None if key != "page" else 1
 
 def back():
@@ -65,6 +65,7 @@ if st.session_state.page == 1:
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pass")
         role = st.selectbox("Role", ["applicant", "recruiter"], key="login_role")
+
         if st.button("Login"):
             resp = login(username, password, role)
             if "token" in resp:
@@ -81,6 +82,7 @@ if st.session_state.page == 1:
         reg_user = st.text_input("Username", key="reg_user")
         reg_pass = st.text_input("Password", type="password", key="reg_pass")
         reg_role = st.selectbox("Role", ["applicant", "recruiter"], key="reg_role")
+
         if st.button("Register"):
             resp = register(reg_user, reg_pass, reg_role)
             if resp.get("msg"):
@@ -123,9 +125,14 @@ elif st.session_state.page == 2:
         transform: scale(1.15);
         box-shadow: 0 0 30px rgba(0,0,0,0.5);
     }
-    .applicant { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); animation: pulse 2s infinite; }
-    .recruiter { background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); animation: pulse 2s infinite; }
-
+    .applicant {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        animation: pulse 2s infinite;
+    }
+    .recruiter {
+        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        animation: pulse 2s infinite;
+    }
     @keyframes pulse {
         0% { box-shadow: 0 0 0 rgba(0,0,0,0.2); }
         50% { box-shadow: 0 0 25px rgba(0,0,0,0.4); }
@@ -136,120 +143,157 @@ elif st.session_state.page == 2:
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="role-button applicant">Applicant</div>', unsafe_allow_html=True)
-        if st.button("Select Applicant", key="applicant_btn"):
+        if st.button("👤 Applicant", use_container_width=True):
             st.session_state.page = 3
             st.session_state.role = "applicant"
+            st.balloons()
+            st.success("Applicant selected ✅")
     with col2:
-        st.markdown('<div class="role-button recruiter">Recruiter</div>', unsafe_allow_html=True)
-        if st.button("Select Recruiter", key="recruiter_btn"):
+        if st.button("💼 Recruiter", use_container_width=True):
             st.session_state.page = 3
             st.session_state.role = "recruiter"
+            st.balloons()
+            st.success("Recruiter selected ✅")
 
     st.button("Back", on_click=back)
 
-# --------- PAGE 3: Role-specific ----------
+# --------- PAGE 3: Role-specific Dashboard ----------
 elif st.session_state.page == 3:
-    st.button("Logout", on_click=logout)
-    st.button("Back", on_click=back)
+    st.title(f"Welcome, {st.session_state.username}!")
+    st.subheader(f"Role: {st.session_state.role.capitalize()}")
 
-    # ---------- Applicant Portal ----------
+    # ---------- Applicant Dashboard ----------
     if st.session_state.role == "applicant":
         st.header("Applicant Portal")
-        uploaded_file = st.file_uploader("Upload your resume", type=["pdf","docx","xlsx","csv","py","js","java","cpp","png","jpg"])
+        st.write("Upload your resume and get instant ATS feedback!")
+        uploaded_file = st.file_uploader(
+            "Upload your resume", type=["pdf", "docx", "xlsx", "csv", "py", "js", "java", "cpp", "png", "jpg"]
+        )
         job_title = st.text_input("Job Title (optional)")
         job_desc = st.text_area("Job Description (optional)")
+
         if uploaded_file and st.button("Submit Resume"):
             resp = upload_resume(uploaded_file, job_title, job_desc)
             if "resume_id" in resp:
                 st.success("✅ Resume uploaded successfully!")
-                score = resp.get('score',0)
+                score = resp.get('score', 0)
                 st.write(f"**Score:** {score*100:.1f}%")
                 st.write(f"**Feedback:** {resp.get('feedback')}")
-                # Pie chart
+                
                 fig, ax = plt.subplots()
-                ax.pie([score, 1-score], labels=["Match","Missing"], autopct="%1.1f%%", colors=["#4caf50","#f44336"])
+                ax.pie([score, 1-score], labels=["Match", "Missing"], autopct="%1.1f%%",
+                       colors=["#4caf50", "#f44336"])
                 ax.set_title("ATS Matching Score")
                 st.pyplot(fig)
             else:
                 st.error("❌ Error uploading resume.")
 
-    # ---------- Recruiter Portal ----------
+    # ---------- Recruiter Dashboard ----------
     elif st.session_state.role == "recruiter":
-        st.header("Recruiter Portal")
+        st.markdown("""
+        <style>
+        /* Custom styling for recruiter tabs */
+        .tab-container { display: flex; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer;
+               background: #e0e0e0; margin-right: 5px; border-radius: 10px 10px 0 0;
+               font-weight: bold; transition: background 0.3s; }
+        .tab:hover { background: #b0c4de; }
+        .tab-active { background: #4caf50; color: white; }
+        .tab-content { padding: 20px; background: #f9f9f9; border-radius: 0 10px 10px 10px;
+                       box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        </style>
+        """, unsafe_allow_html=True)
 
-        # Upload Job
-        st.subheader("Upload Job")
-        job_title = st.text_input("Job Title", key="job_title_recruiter")
-        job_desc = st.text_area("Job Description", key="job_desc_recruiter")
-        if st.button("Upload Job", key="upload_job_btn"):
-            resp = upload_job(job_title, job_desc)
-            if "job_id" in resp:
-                st.success(f"Job uploaded with ID: {resp.get('job_id')}")
-            else:
-                st.error("Failed to upload job")
+        #t.markdown("<h1>🚀 Resume Relevance Check System</h1>", unsafe_allow_html=True)
+        #t.markdown("<p>AI-powered resume-job description matching with comprehensive analysis and feedback.</p>",
+                    #nsafe_allow_html=True)
 
-        # Upload Applicant Resume
-        st.subheader("Upload Applicant Resume")
-        uploaded_file = st.file_uploader(
-            "Upload Resume", 
-            type=["pdf","docx","xlsx","csv","py","js","java","cpp","png","jpg"],
-            key="recruiter_upload"
-        )
-        job_title2 = st.text_input("Job Title for Resume Match", key="job_title_resume")
-        job_desc2 = st.text_area("Job Description for Resume Match", key="job_desc_resume")
-        if uploaded_file and st.button("Submit Applicant Resume", key="submit_resume_btn"):
-            resp = upload_resume(uploaded_file, job_title2, job_desc2)
-            if "resume_id" in resp:
-                st.success("✅ Resume uploaded successfully!")
-                score = resp.get('score',0)
-                st.write(f"**Score:** {score*100:.1f}%")
-                st.write(f"**Feedback:** {resp.get('feedback')}")
-                # Pie chart
-                fig, ax = plt.subplots()
-                ax.pie([score, 1-score], labels=["Match","Missing"], autopct="%1.1f%%", colors=["#4caf50","#f44336"])
-                ax.set_title("ATS Matching Score")
-                st.pyplot(fig)
-            else:
-                st.error("❌ Error uploading resume.")
+        if "recruiter_tab" not in st.session_state:
+            st.session_state.recruiter_tab = "upload"
 
-        # Match Resumes & Summary
-        st.subheader("Match Resumes & Summary")
-        job_id_input = st.number_input("Enter Job ID to Match Resumes", min_value=1, step=1, key="match_job_id")
-        if st.button("Match Resumes", key="match_resumes_btn"):
-            resp = match_resumes(job_id_input)
-            if "matches" in resp:
-                df = pd.DataFrame(resp["matches"])[["filename","user_id","score","feedback","ranking","status"]]
-                df["score"] = df["score"]*100
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Upload & Match"):
+                st.session_state.recruiter_tab = "upload"
+        with col2:
+            if st.button("Results"):
+                st.session_state.recruiter_tab = "results"
+        with col3:
+            if st.button("History"):
+                st.session_state.recruiter_tab = "history"
 
-                # Summary stats
-                total = len(df)
-                shortlisted = len(df[df["status"]=="Shortlisted"])
-                not_eligible = len(df[df["status"]=="Not Eligible"])
-                st.write(f"**Total Applications:** {total}")
-                st.write(f"**Shortlisted:** {shortlisted}")
-                st.write(f"**Not Eligible:** {not_eligible}")
+        st.markdown("<div class='tab-content'>", unsafe_allow_html=True)
 
-                # Detailed table
-                st.table(df)
+        # Upload & Match Tab
+        if st.session_state.recruiter_tab == "upload":
+            st.markdown("### 📄 Job Description", unsafe_allow_html=True)
+            job_title = st.text_input("Job Title", key="job_title_recruiter")
+            company_name = st.text_input("Company Name", key="company_name_recruiter")
+            job_file = st.file_uploader("Choose Job Description File", type=["pdf", "docx", "txt"], key="job_file")
 
-                # ---------- Charts ----------
-                st.subheader("Visualization")
-                # Pie chart
-                fig, ax = plt.subplots()
-                ax.pie([shortlisted, not_eligible], labels=["Shortlisted","Not Eligible"], autopct="%1.1f%%", colors=["#4caf50","#f44336"])
-                ax.set_title("Shortlist vs Not Eligible")
-                st.pyplot(fig)
+            if job_file and st.button("Upload Job"):
+                resp = upload_job(job_title, job_file.read().decode("utf-8"))
+                if "job_id" in resp:
+                    st.success(f"Job uploaded with ID: {resp.get('job_id')}")
+                else:
+                    st.error("Failed to upload job.")
 
-                # Bar chart - Score distribution
-                fig, ax = plt.subplots()
-                x = range(len(df))
-                ax.bar(x, df["score"], color="#2196f3")
-                ax.set_xticks(x)
-                ax.set_xticklabels(df["filename"], rotation=45, ha="right")
-                ax.set_ylabel("Score (%)")
-                ax.set_title("Resume Score Distribution")
-                st.pyplot(fig)
-            else:
-                st.error(resp.get("detail", "No matches found"))
+            st.markdown("### 📁 Resume", unsafe_allow_html=True)
+            resume_file = st.file_uploader("Choose Resume File", type=["pdf", "docx", "txt"], key="resume_file")
+
+            if resume_file and st.button("Upload Resume"):
+                resp = upload_resume(resume_file, job_title, company_name)
+                if "resume_id" in resp:
+                    st.success("Resume uploaded successfully!")
+                else:
+                    st.error("Error uploading resume.")
+
+        # Results Tab
+        elif st.session_state.recruiter_tab == "results":
+            st.markdown("### 📊 Resume Match Results", unsafe_allow_html=True)
+            job_id_input = st.number_input("Enter Job ID to Match Resumes", min_value=1, step=1, key="match_job_id")
+
+            if st.button("View Results"):
+                resp = match_resumes(job_id_input)
+                if "matches" in resp:
+                    df = pd.DataFrame(resp["matches"])[["filename", "user_id", "score", "feedback", "ranking", "status"]]
+                    df["score"] = df["score"] * 100
+                    st.table(df)
+
+                    # Pie chart: shortlisted vs not eligible
+                    fig, ax = plt.subplots()
+                    shortlisted = len(df[df["status"] == "Shortlisted"])
+                    not_eligible = len(df[df["status"] == "Not Eligible"])
+                    ax.pie([shortlisted, not_eligible], labels=["Shortlisted", "Not Eligible"],
+                           autopct="%1.1f%%", colors=["#4caf50", "#f44336"])
+                    ax.set_title("Shortlist vs Not Eligible")
+                    st.pyplot(fig)
+
+                    # Bar chart - Score distribution
+                    fig, ax = plt.subplots()
+                    x = range(len(df))
+                    ax.bar(x, df["score"], color="#2196f3")
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(df["filename"], rotation=45, ha="right")
+                    ax.set_ylabel("Score (%)")
+                    ax.set_title("Resume Score Distribution")
+                    st.pyplot(fig)
+                else:
+                    st.error("No matches found.")
+
+        # History Tab
+        elif st.session_state.recruiter_tab == "history":
+            st.markdown("### 🕒 Upload & Match History", unsafe_allow_html=True)
+            st.write("Previous uploaded jobs and resumes will appear here.")
+            st.info("This feature can be connected to a database for history tracking.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---------- Bottom Buttons ----------
+    st.markdown("---")
+    col_back, col_logout = st.columns([1, 1])
+    with col_back:
+        st.button("⬅️ Back", on_click=back, use_container_width=True)
+    with col_logout:
+        st.button("🚪 Logout", on_click=logout, use_container_width=True)
 

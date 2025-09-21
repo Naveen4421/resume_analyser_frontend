@@ -24,7 +24,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 cursor = conn.cursor()
 
-# Users
+# Users table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT
 )
 """)
-# Resumes
+# Resumes table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS resumes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS resumes (
     ranking INTEGER
 )
 """)
-# Jobs
+# Jobs table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,7 +70,7 @@ class Job(BaseModel):
     description: str
 
 # -------------------------
-# Auth helpers
+# Auth Helpers
 # -------------------------
 def create_token(user_id: int):
     return jwt.encode({"user_id": user_id}, SECRET_KEY, algorithm=ALGORITHM)
@@ -83,7 +83,7 @@ def decode_token(token: str):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # -------------------------
-# File processing helpers
+# File Processing Helpers
 # -------------------------
 def extract_text_from_pdf(file_bytes):
     doc = fitz.open(stream=file_bytes, filetype="pdf")
@@ -106,26 +106,25 @@ def extract_text_from_code(file_bytes):
     return file_bytes.decode("utf-8", errors="ignore").lower()
 
 # -------------------------
-# Keyword-based scoring
+# Keyword-Based Scoring
 # -------------------------
 def generate_score_and_feedback(resume_text: str, job_title: str, job_desc: str):
     # Extract keywords (words longer than 3 letters)
     job_keywords = set(re.findall(r"\b\w{4,}\b", job_title + " " + job_desc.lower()))
     resume_words = set(re.findall(r"\b\w{4,}\b", resume_text.lower()))
-    
+
     if not job_keywords:
         return 0.0, "Job description too short for analysis."
-    
+
     matched_keywords = job_keywords.intersection(resume_words)
-    score = round(len(matched_keywords) / len(job_keywords), 2)  # percentage match
-    
-    # Generate feedback for missing keywords
+    score = round(len(matched_keywords) / len(job_keywords), 2)
+
     missing_keywords = job_keywords - matched_keywords
     if missing_keywords:
         feedback = "Your resume is missing these important keywords: " + ", ".join(list(missing_keywords)[:10])
     else:
         feedback = "Excellent! Your resume matches most of the job keywords."
-    
+
     return score, feedback
 
 # -------------------------
@@ -169,7 +168,7 @@ def upload_resume(file: UploadFile = File(...), job_title: str = "", job_descrip
     user_id = decode_token(token)
     file_bytes = file.file.read()
     ext = os.path.splitext(file.filename)[1].lower()
-    
+
     if ext == ".pdf":
         content = extract_text_from_pdf(file_bytes)
     elif ext in [".docx"]:
@@ -179,22 +178,25 @@ def upload_resume(file: UploadFile = File(...), job_title: str = "", job_descrip
     elif ext in [".py", ".js", ".java", ".cpp"]:
         content = extract_text_from_code(file_bytes)
     elif ext in [".png", ".jpg", ".jpeg"]:
-        content = ""  # Images stored but no text
+        content = ""  # No text for images
     else:
         raise HTTPException(status_code=400, detail="Unsupported file type")
-    
-    # Generate realistic ATS score and feedback
+
     score, feedback = generate_score_and_feedback(content, job_title, job_description)
-    
-    # Determine status
     status = "Shortlisted" if score >= 0.5 else "Not Eligible"
-    
+
     cursor.execute(
         "INSERT INTO resumes (filename, file_type, content, user_id, score, feedback, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (file.filename, ext, content, user_id, score, feedback, status)
     )
     conn.commit()
-    return {"resume_id": cursor.lastrowid, "score": score, "feedback": feedback, "status": status, "preview": content[:200]}
+    return {
+        "resume_id": cursor.lastrowid,
+        "score": score,
+        "feedback": feedback,
+        "status": status,
+        "preview": content[:200]
+    }
 
 # -------------------------
 # Resume Matching
@@ -206,11 +208,11 @@ def match_resumes(job_id: int, token: str = Depends(oauth2_scheme)):
     job_row = cursor.fetchone()
     if not job_row:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     job_title, job_desc = job_row
     cursor.execute("SELECT id, filename, content, user_id FROM resumes")
     resumes = cursor.fetchall()
-    
+
     matches = []
     for idx, r in enumerate(resumes):
         score, feedback = generate_score_and_feedback(r[2], job_title, job_desc)
@@ -225,11 +227,12 @@ def match_resumes(job_id: int, token: str = Depends(oauth2_scheme)):
             "ranking": idx + 1,
             "status": status
         })
-        # Update database
-        cursor.execute("UPDATE resumes SET score=?, feedback=?, status=?, ranking=? WHERE id=?",
-                       (score, feedback, status, idx + 1, r[0]))
+        cursor.execute(
+            "UPDATE resumes SET score=?, feedback=?, status=?, ranking=? WHERE id=?",
+            (score, feedback, status, idx + 1, r[0])
+        )
     conn.commit()
-    
+
     return {"job_id": job_id, "matches": matches}
 
 # -------------------------
@@ -244,7 +247,7 @@ def resume_summary(token: str = Depends(oauth2_scheme)):
     shortlisted = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM resumes WHERE status='Not Eligible'")
     not_eligible = cursor.fetchone()[0]
-    
+
     return {
         "total_applications": total,
         "shortlisted": shortlisted,
